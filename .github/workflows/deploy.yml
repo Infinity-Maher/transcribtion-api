@@ -1,0 +1,31 @@
+name: Deploy to Cloud Run
+
+# This workflow triggers automatically every time you push code to the 'main' branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Download your code into the GitHub Actions runner
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Log into Google Cloud using the secret JSON key you uploaded
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: "${{ secrets.GCP_CREDENTIALS }}"
+
+      # Step 3: Send the source code to Google Cloud to build and deploy
+      - name: Deploy to Cloud Run from Source
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: transcription-api
+          region: us-central1
+          source: .
