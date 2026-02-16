@@ -4,3 +4,4 @@ google-cloud-speech
 google-genai
 python-multipart
 pydantic
+pydub

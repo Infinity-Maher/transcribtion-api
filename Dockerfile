@@ -7,6 +7,9 @@ ENV PYTHONUNBUFFERED=True
 # Set the working directory inside the container
 WORKDIR /app
 
+# Install ffmpeg for audio conversion
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+
 # Copy the requirements and install them
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

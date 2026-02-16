@@ -3,7 +3,9 @@ from pydantic import BaseModel, Field
 from google.cloud import speech
 from google import genai
 from google.genai import types
+from pydub import AudioSegment
 import json
+import io
 from enum import Enum
 
 app = FastAPI(title="Audio Transcription & Reasoning API")
@@ -23,7 +25,7 @@ class ServiceCategory(str, Enum):
     carpentry = "نجارة"
     electricity = "كهرباء"
     plumbing = "سباكة"
-    handicrafts = "أعمال يدوية"
+    handicrafts = "نقاش"
 
 
 class EnhancedTranscriptionSchema(BaseModel):
@@ -46,13 +48,35 @@ async def process_audio(file: UploadFile = File(...)):
 
     print(f"Processing {file.filename}...")
 
-    # Step B: Pass the bytes to Google Cloud Speech-to-Text
+    # Step A2: Convert any audio format to WAV (LINEAR16, 16kHz, mono)
+    try:
+        audio_input = io.BytesIO(audio_bytes)
+        # Determine format from file extension, fallback to ffmpeg auto-detect
+        ext = file.filename.rsplit(
+            ".", 1)[-1].lower() if file.filename and "." in file.filename else None
+        if ext in ("wav", "mp3", "ogg", "flac", "aac", "m4a", "wma", "webm", "mp4"):
+            audio_segment = AudioSegment.from_file(audio_input, format=ext)
+        else:
+            audio_segment = AudioSegment.from_file(audio_input)
+
+        # Convert to mono, 16kHz, 16-bit PCM WAV
+        audio_segment = audio_segment.set_channels(
+            1).set_frame_rate(16000).set_sample_width(2)
+        wav_buffer = io.BytesIO()
+        audio_segment.export(wav_buffer, format="wav")
+        wav_bytes = wav_buffer.getvalue()
+        print(f"Converted to WAV: {len(wav_bytes)} bytes")
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Could not convert audio file: {str(e)}")
+
+    # Step B: Pass the converted WAV bytes to Google Cloud Speech-to-Text
     config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
         sample_rate_hertz=16000,
         language_code="ar-EG",
     )
-    audio = speech.RecognitionAudio(content=audio_bytes)
+    audio = speech.RecognitionAudio(content=wav_bytes)
 
     try:
         stt_response = speech_client.recognize(config=config, audio=audio)
